@@ -21,12 +21,12 @@ OUTPUT_DIRECTORY: str = "output"
 TITLE_FONT: str = "arial.ttf"
 TITLE_FONT_SIZE: int = 200
 WEEKDAY_ROW_FONT: str = "arial.ttf"
-WEEKDAY_ROW_FONT_SIZE: int = 50
+WEEKDAY_ROW_FONT_SIZE: int = 55
 NUMBER_FONT: str = "arial.ttf"
-DAY_NUMBER_FONT_SIZE: int = 140
-WEEK_NUMBER_FONT_SIZE: int = 60
+DAY_NUMBER_FONT_SIZE: int = 200
+WEEK_NUMBER_FONT_SIZE: int = 90
 NAMES_FONT: str = "arial.ttf"
-NAMES_FONT_SIZE: int = 30
+NAMES_FONT_SIZE: int = 45
 
 # Colors
 TITLE_FG: str = "black"
@@ -40,15 +40,17 @@ NAMES_FG: str = "gray"
 LINE_FG: str = "gray"
 
 # Dimensions
-TITLE_Y_OFFSET: int = 350
-FULL_CALENDAR_Y_OFFSET: int = 2700
+TITLE_Y_OFFSET: int = 150
+FULL_CALENDAR_Y_OFFSET: int = 2350
 FULL_CALENDAR_WIDTH: int = 3000
-WEEKDAY_ROW_HEIGHT: int = 200
-CALENDAR_ROW_HEIGHT: int = 350
+EMBEDDED_IMAGE_OFFSET: int = 450
+EMBEDDED_IMAGE_HEIGHT: int = 1700
+WEEKDAY_ROW_HEIGHT: int = 120
+CALENDAR_ROW_HEIGHT: int = 400
 WEEK_NUMBER_WIDTH: int = 180
 ROUNDING_RADIUS: int = 40
 LINE_WIDTH: int = 12
-DAY_CELL_SPACING: int = 40
+DAY_CELL_SPACING: int = 38
 
 # Export options
 AUTHOR_NAME: str = "Kacper Wojciuch"
@@ -146,8 +148,16 @@ def generate_month_table(matrix: list[list[date]], month: int) -> Image:
 
     # Week numbers
     draw.rounded_rectangle(
-        (0, WEEKDAY_ROW_HEIGHT, WEEK_NUMBER_WIDTH, full_calendar_height), ROUNDING_RADIUS, WEEK_INFO_BG
+        (0, WEEKDAY_ROW_HEIGHT, WEEK_NUMBER_WIDTH - LINE_WIDTH, full_calendar_height), ROUNDING_RADIUS, WEEK_INFO_BG
     )
+    for row in range(len(matrix)):
+        draw.text(
+            (WEEK_NUMBER_WIDTH // 2, WEEKDAY_ROW_HEIGHT + row * CALENDAR_ROW_HEIGHT + CALENDAR_ROW_HEIGHT // 2),
+            str(matrix[row][0].isocalendar()[1]),
+            font=get_cached_font(NUMBER_FONT, WEEK_NUMBER_FONT_SIZE),
+            anchor="mm",
+            fill=WEEK_INFO_FG,
+        )
 
     # Main table
     for column in range(7):
@@ -195,10 +205,11 @@ def generate_month_table(matrix: list[list[date]], month: int) -> Image:
             # Day number
             current_date = matrix[row][column]
             is_extra_day = current_date.month != month
-            day_number_y = (
+            day_number_xy = (
+                WEEK_NUMBER_WIDTH + column * main_column_width + main_column_width // 2,
                 WEEKDAY_ROW_HEIGHT
                 + row * CALENDAR_ROW_HEIGHT
-                + (CALENDAR_ROW_HEIGHT // 2 if is_extra_day else DAY_CELL_SPACING)
+                + (CALENDAR_ROW_HEIGHT // 2 if is_extra_day else DAY_CELL_SPACING),
             )
             if is_extra_day:
                 day_color = EXTRA_DAY_FG
@@ -209,17 +220,54 @@ def generate_month_table(matrix: list[list[date]], month: int) -> Image:
             else:
                 day_color = NORMAL_DAY_FG
             draw.text(
-                (WEEK_NUMBER_WIDTH + column * main_column_width + main_column_width // 2, day_number_y),
-                str(current_date.day),
+                xy=day_number_xy,
+                text=str(current_date.day),
                 font=get_cached_font(NUMBER_FONT, DAY_NUMBER_FONT_SIZE),
                 anchor="mm" if is_extra_day else "mt",
                 fill=day_color,
             )
+            # Names
+            if is_extra_day:
+                continue
+            names_params = {
+                "xy": (0, 0),  # just to measure the bounding box
+                "text": "\n".join(read_name_days()[(current_date.day, current_date.month)]),
+                "font": get_cached_font(NAMES_FONT, NAMES_FONT_SIZE),
+                "align": "center",
+            }
+            names_box = draw.multiline_textbbox(**names_params)
+            names_params["xy"] = (
+                day_number_xy[0] - (names_box[2] - names_box[0]) // 2,
+                WEEKDAY_ROW_HEIGHT
+                + (row + 1) * CALENDAR_ROW_HEIGHT
+                - LINE_WIDTH
+                - DAY_CELL_SPACING
+                - (names_box[3] - names_box[1]),
+            )
+            draw.text(**names_params, fill=NAMES_FG)
 
     return image
 
 
-def generate_calendar_page(base_image: Image, year: int, month: int) -> Image:
+def scale_embedded_image(image: Image) -> Image:
+    """Crops and scales selected image to match the required size"""
+    ratio = image.size[0] / image.size[1]
+    expected_ratio = FULL_CALENDAR_WIDTH / EMBEDDED_IMAGE_HEIGHT
+    if ratio > expected_ratio:
+        width = image.size[1] * expected_ratio
+        return image.resize(
+            (FULL_CALENDAR_WIDTH, EMBEDDED_IMAGE_HEIGHT),
+            box=((image.size[0] - width) // 2, 0, (image.size[0] + width) // 2, image.size[1]),
+        )
+    else:
+        height = image.size[0] / expected_ratio
+        return image.resize(
+            (FULL_CALENDAR_WIDTH, EMBEDDED_IMAGE_HEIGHT),
+            box=(0, (image.size[1] - height) // 2, image.size[0], (image.size[1] + height) // 2),
+        )
+
+
+def generate_calendar_page(base_image: Image, year: int, month: int, embed: Image) -> Image:
     """Generates singular month page of the calendar"""
 
     image = base_image.copy()
@@ -232,9 +280,12 @@ def generate_calendar_page(base_image: Image, year: int, month: int) -> Image:
         fill=TITLE_FG,
     )
 
+    scaled_embed = scale_embedded_image(embed)
+    content_x = (image.width - FULL_CALENDAR_WIDTH) // 2
+    image.paste(scaled_embed, (content_x, EMBEDDED_IMAGE_OFFSET))
+
     matrix = generate_day_matrix(year, month)
-    table_xy = ((image.width - FULL_CALENDAR_WIDTH) // 2, FULL_CALENDAR_Y_OFFSET)
-    image.paste(generate_month_table(matrix, month), table_xy)
+    image.paste(generate_month_table(matrix, month), (content_x, FULL_CALENDAR_Y_OFFSET))
 
     return image
 
@@ -247,11 +298,16 @@ def main(year: int) -> None:
     except (UnidentifiedImageError, FileNotFoundError):
         print(f"Could not open base image!")
         raise ValueError
-    # embedded_images = read_embedded_images()
+    embedded_images = read_embedded_images()
 
-    generated_pages = [generate_calendar_page(base_image, year, m + 1) for m in range(12)]
+    generated_pages = []
+    for month in range(12):
+        generated_pages.append(generate_calendar_page(base_image, year, month + 1, embedded_images[month]))
+        print(f"Generated page number {month + 1}!")
+
     makedirs(OUTPUT_DIRECTORY, exist_ok=True)
     output_file = path.join(OUTPUT_DIRECTORY, f"calendar_{year}.pdf")
+    print("Saving...")
     generated_pages[0].save(
         output_file,
         save_all=True,
@@ -268,7 +324,4 @@ if __name__ == "__main__":
     if len(argv) != 2:
         print("Usage: python calendar-generator.py <year>")
     else:
-        try:
-            main(int(argv[1]))
-        except ValueError:
-            print("Exiting...")
+        main(int(argv[1]))
