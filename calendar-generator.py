@@ -18,32 +18,32 @@ EMBEDDED_IMAGES_DIRECTORY: str = "images"
 OUTPUT_DIRECTORY: str = "output"
 
 # Fonts
-TITLE_FONT: str = "arial.ttf"
+TITLE_FONT: str = path.join("fonts", "Merienda.ttf")
 TITLE_FONT_SIZE: int = 200
-WEEKDAY_ROW_FONT: str = "arial.ttf"
+WEEKDAY_ROW_FONT: str = path.join("fonts", "Bitter-Bold.ttf")
 WEEKDAY_ROW_FONT_SIZE: int = 55
-NUMBER_FONT: str = "arial.ttf"
+NUMBER_FONT: str = path.join("fonts", "Bitter.ttf")
 DAY_NUMBER_FONT_SIZE: int = 200
 WEEK_NUMBER_FONT_SIZE: int = 90
-NAMES_FONT: str = "arial.ttf"
+NAMES_FONT: str = path.join("fonts", "Rajdhani-Bold.ttf")
 NAMES_FONT_SIZE: int = 45
 
 # Colors
 TITLE_FG: str = "black"
 WEEK_INFO_FG: str = "black"
-WEEK_INFO_BG: str = "gray"
+WEEK_INFO_BG: str = "#f5de0b"
 NORMAL_DAY_FG: str = "black"
-SATURDAY_FG: str = "gray"
+SATURDAY_FG: str = "#696969"
 SUNDAY_FG: str = "red"
-EXTRA_DAY_FG: str = "gray"
-NAMES_FG: str = "gray"
-LINE_FG: str = "gray"
+EXTRA_DAY_FG: str = "#9e9e9e"
+NAMES_FG: str = "#9e9e9e"
+LINE_FG: str = "#f5de0b"
 
 # Dimensions
 TITLE_Y_OFFSET: int = 150
 FULL_CALENDAR_Y_OFFSET: int = 2350
 FULL_CALENDAR_WIDTH: int = 3000
-EMBEDDED_IMAGE_OFFSET: int = 450
+EMBEDDED_IMAGE_OFFSET: int = 480
 EMBEDDED_IMAGE_HEIGHT: int = 1700
 WEEKDAY_ROW_HEIGHT: int = 120
 CALENDAR_ROW_HEIGHT: int = 400
